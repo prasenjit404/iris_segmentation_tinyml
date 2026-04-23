@@ -1,184 +1,144 @@
-# TinyML Iris and Sclera Feature Pipeline
+# 👁️ Iris Segmentation Using TinyML
 
-This project implements an end-to-end eye-image pipeline that outputs two matrices per input image:
-1. Iris feature matrix
-2. Combined sclera feature matrix (left and right sclera merged)
+### Edge-Optimized Deep Learning Pipeline for Robust Iris Segmentation
 
-Primary objective:
-- Keep the workflow TinyML-oriented and deployment-aware while still providing practical labeling, validation, and frontend usability.
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://python.org)
+[![PyTorch](https://img.shields.io/badge/PyTorch-Training-EE4C2C?logo=pytorch&logoColor=white)](https://pytorch.org)
+[![NumPy](https://img.shields.io/badge/NumPy-Inference-013243?logo=numpy&logoColor=white)](https://numpy.org)
+[![Streamlit](https://img.shields.io/badge/Streamlit-UI-FF4B4B?logo=streamlit&logoColor=white)](https://streamlit.io)
 
-## Documentation Index
+---
 
-High-level implementation and rationale:
-- [docs/implementation_report.md](docs/implementation_report.md)
-- [docs/engineering_decisions.md](docs/engineering_decisions.md)
-- [docs/project_overview_non_technical.md](docs/project_overview_non_technical.md)
+## 📋 Overview
 
-Detailed implementation by phase:
-- [docs/implementation_phase_1_data_audit.md](docs/implementation_phase_1_data_audit.md)
-- [docs/implementation_phase_2_prelabel_and_review.md](docs/implementation_phase_2_prelabel_and_review.md)
-- [docs/implementation_phase_3_tiny_training.md](docs/implementation_phase_3_tiny_training.md)
-- [docs/implementation_phase_4_inference_and_features.md](docs/implementation_phase_4_inference_and_features.md)
-- [docs/implementation_phase_5_active_learning.md](docs/implementation_phase_5_active_learning.md)
-- [docs/implementation_phase_6_robustness.md](docs/implementation_phase_6_robustness.md)
-- [docs/implementation_phase_7_deployment.md](docs/implementation_phase_7_deployment.md)
+This project presents a **lightweight, edge-optimized iris segmentation pipeline** built around a custom **TinyUNet** architecture containing only ~28,000 trainable parameters. Trained on the UBIRIS visible-light eye dataset using PyTorch, the model accurately segments the iris annulus while deliberately excluding the pupil, sclera, eyelashes, and specular glare — challenges that are notoriously difficult under visible-light conditions.
 
-Key code entrypoints:
-- [src/eye_feature_pipeline/cli.py](src/eye_feature_pipeline/cli.py)
-- [streamlit_app.py](streamlit_app.py)
+The key innovation lies in the **deployment philosophy**: while PyTorch is used for offline training, all inference-time computation is executed through **pure NumPy array operations**, eliminating the need for heavyweight deep-learning frameworks (PyTorch, TensorFlow, ONNX Runtime) at runtime. This makes the pipeline viable for deployment on resource-constrained edge devices and TinyML-class hardware (ARM Cortex-M, Raspberry Pi, etc.) where GPU support and large runtime libraries are unavailable. A multi-stage **geometric refinement** post-processor transforms the raw binary mask into a smooth, circle-fitted annular overlay on the original RGB image, producing presentation-ready visualisations.
 
-## Mandatory Dependency Policy
+---
 
-Before any pip install, always create and activate a project-local virtual environment.
-Global pip installs are not allowed.
+## ✨ Key Features
 
-## One-Command Full Run (From Scratch)
+- **🧠 TinyUNet Architecture** — A minimal 3-stage encoder–decoder with skip connections (~28K parameters), purpose-built for binary iris segmentation at 128×128 resolution.
+- **⚡ Pure-NumPy Inference** — Framework-free forward pass using only NumPy array operations — no GPU, no PyTorch, no TensorFlow required at deployment.
+- **🔵 Geometric Refinement** — Least-squares circle fitting (Kåsa + Gauss–Newton) with 4× supersampled antialiased mask rendering transforms pixelated raw masks into smooth annular overlays.
+- **📊 Batch Processing CLI** — Process entire multi-subject datasets offline, producing both raw binary masks and refined RGB overlays for every image.
+- **🌐 Interactive Streamlit UI** — Upload an eye image, run segmentation in real-time, and visualise the Original → Raw Mask → Refined Overlay side-by-side with circle-fitting diagnostics.
+- **📥 One-Click Downloads** — Export both the raw mask and refined overlay as PNG files directly from the web interface.
 
-Windows PowerShell consolidated script:
-- [scripts/run_all_from_scratch.ps1](scripts/run_all_from_scratch.ps1)
+---
 
-Default behavior:
-1. Creates venv if missing
-2. Installs dependencies
-3. Runs all pipeline stages in sequence
-4. Launches Streamlit app at the end
+## 🛠️ Tech Stack
 
-Script parameters:
-1. `-PrelabelMaxSamples <int>`
-   - Controls how many images are used by prelabel in that run.
-   - Useful for smoke tests (`60`, `100`) vs larger runs (`500+`).
-2. `-SkipStreamlit`
-   - Runs full pipeline but does not launch Streamlit.
-   - Useful in CI/headless environments.
+| Component | Technology | Role |
+|-----------|-----------|------|
+| **Model Training** | PyTorch 2.x | Offline training with Adam optimiser, class-weighted cross-entropy, augmentation |
+| **Inference** | NumPy 1.24+ | Framework-free forward pass (convolution, batch norm, ReLU, pooling) |
+| **Image Processing** | OpenCV 4.x, Pillow 10.x | Morphological ops, contour detection, circle drawing, format I/O |
+| **Circle Fitting** | SciPy 1.11+ | Least-squares algebraic + geometric circle fitting |
+| **Web Interface** | Streamlit 1.30+ | Interactive single-page demonstration app |
+| **Language** | Python 3.10+ | End-to-end implementation |
 
-Recommended usage patterns:
-1. First sanity run:
-   - `./scripts/run_all_from_scratch.ps1 -PrelabelMaxSamples 60 -SkipStreamlit`
-2. Full local run with UI:
-   - `./scripts/run_all_from_scratch.ps1`
-3. Full run without UI (batch mode):
-   - `./scripts/run_all_from_scratch.ps1 -SkipStreamlit`
+---
 
-What success looks like:
-1. Script exits with code `0`.
-2. New summaries are available under:
-   - `outputs/audit_summary.json`
-   - `outputs/prelabels/summary.json`
-   - `outputs/models/tiny_segmentation_summary.json`
-   - `outputs/eval/robustness_summary.json`
-   - `outputs/deploy/deploy_export_summary.json`
-3. If Streamlit is not skipped, the app opens and accepts uploads.
+## 🚀 Installation
 
-Examples:
-1. Full run + Streamlit
-   - ./scripts/run_all_from_scratch.ps1
-2. Full run without launching Streamlit
-   - ./scripts/run_all_from_scratch.ps1 -SkipStreamlit
-3. Full run with prelabel sample override
-   - ./scripts/run_all_from_scratch.ps1 -PrelabelMaxSamples 150
+```bash
+# 1. Clone the repository
+git clone https://github.com/your-username/iris-segmentation-tinyml.git
+cd iris-segmentation-tinyml
 
-## Stage-by-Stage Runbook
+# 2. Create and activate a virtual environment
+python -m venv .venv
 
-### Environment setup
-1. [scripts/setup_venv.ps1](scripts/setup_venv.ps1)
-2. [scripts/setup_venv.sh](scripts/setup_venv.sh)
+# Windows (PowerShell)
+.\.venv\Scripts\Activate.ps1
 
-### Phase 1: Data audit
-1. [scripts/run_data_audit.ps1](scripts/run_data_audit.ps1)
-2. Outputs:
-   - [outputs/metadata.csv](outputs/metadata.csv)
-   - [outputs/split_subject_disjoint.csv](outputs/split_subject_disjoint.csv)
-   - [outputs/audit_summary.json](outputs/audit_summary.json)
+# Linux / macOS
+# source .venv/bin/activate
 
-### Phase 2: Semi-auto pre-labeling
-1. [scripts/run_prelabel.ps1](scripts/run_prelabel.ps1)
-2. Config:
-   - [configs/prelabel_config.yaml](configs/prelabel_config.yaml)
-3. Outputs:
-   - [outputs/prelabels/manifest.csv](outputs/prelabels/manifest.csv)
-   - [outputs/prelabels/review_priority.csv](outputs/prelabels/review_priority.csv)
-   - [outputs/prelabels/accepted_manifest.csv](outputs/prelabels/accepted_manifest.csv)
-   - [outputs/prelabels/summary.json](outputs/prelabels/summary.json)
+# 3. Install dependencies
+pip install -r requirements.txt
+```
 
-### Phase 2b: Review exports
-1. [scripts/run_review_export.ps1](scripts/run_review_export.ps1)
-2. Config:
-   - [configs/review_export_config.yaml](configs/review_export_config.yaml)
-3. Outputs:
-   - [outputs/prelabels/review_exports/review_pool.csv](outputs/prelabels/review_exports/review_pool.csv)
-   - [outputs/prelabels/review_exports/label_studio_tasks.json](outputs/prelabels/review_exports/label_studio_tasks.json)
-   - [outputs/prelabels/review_exports/review_export_summary.json](outputs/prelabels/review_exports/review_export_summary.json)
+---
 
-### Phase 3: Tiny segmentation training
-1. [scripts/run_train_segmentation.ps1](scripts/run_train_segmentation.ps1)
-2. Config:
-   - [configs/segmentation_train_config.yaml](configs/segmentation_train_config.yaml)
-3. Outputs:
-   - [outputs/models/tiny_segmentation_model.npz](outputs/models/tiny_segmentation_model.npz)
-   - [outputs/models/tiny_segmentation_model_int8.npz](outputs/models/tiny_segmentation_model_int8.npz)
-   - [outputs/models/tiny_segmentation_summary.json](outputs/models/tiny_segmentation_summary.json)
+## 💻 Usage
 
-### Phase 4: End-to-end inference
-1. [scripts/run_infer_eye.ps1](scripts/run_infer_eye.ps1)
-2. Config:
-   - [configs/inference_config.yaml](configs/inference_config.yaml)
-3. Output contract:
-   - segmentation mask image
-   - iris matrix .npy
-   - sclera matrix .npy
+### Interactive Streamlit UI
 
-### Phase 5: Active learning round builder
-1. [scripts/run_active_learning_round.ps1](scripts/run_active_learning_round.ps1)
-2. Config:
-   - [configs/active_learning_config.yaml](configs/active_learning_config.yaml)
-3. Outputs:
-   - [outputs/prelabels/active_round_manifest.csv](outputs/prelabels/active_round_manifest.csv)
-   - [outputs/prelabels/active_learning_summary.json](outputs/prelabels/active_learning_summary.json)
+Launch the web application for real-time, single-image segmentation:
 
-### Phase 6: Robustness evaluation
-1. [scripts/run_robustness_eval.ps1](scripts/run_robustness_eval.ps1)
-2. Config:
-   - [configs/robustness_eval_config.yaml](configs/robustness_eval_config.yaml)
-3. Outputs:
-   - [outputs/eval/robustness_records.csv](outputs/eval/robustness_records.csv)
-   - [outputs/eval/robustness_summary.json](outputs/eval/robustness_summary.json)
+```bash
+streamlit run streamlit_app.py
+```
 
-### Phase 7: Deployment export
-1. [scripts/run_export_deploy.ps1](scripts/run_export_deploy.ps1)
-2. Config:
-   - [configs/deploy_export_config.yaml](configs/deploy_export_config.yaml)
-3. Outputs:
-   - [outputs/deploy/tiny_segmentation_model.h](outputs/deploy/tiny_segmentation_model.h)
-   - [outputs/deploy/model_card.json](outputs/deploy/model_card.json)
-   - [outputs/deploy/deploy_export_summary.json](outputs/deploy/deploy_export_summary.json)
+Upload an eye image → click **🚀 Run Segmentation** → view the three-column output (Original | Raw Mask | Refined Overlay) with circle-fitting diagnostics and download buttons.
 
-### Frontend (Streamlit)
-1. [scripts/run_streamlit.ps1](scripts/run_streamlit.ps1)
-2. Open local URL (typically localhost:8501)
-3. Upload one eye image and click Run Inference
-4. Download outputs as CSV:
-   - iris matrix `.csv`
-   - sclera matrix `.csv`
+### Batch Processing
 
-UI behavior note:
-1. Inference results are preserved in Streamlit session state.
-2. Clicking download buttons no longer clears the generated results.
+Process an entire multi-subject dataset from the command line:
 
-## Why These Engineering Choices
+```bash
+# Default: processes dataset/ → segmented_output/
+python batch_segmentation.py
 
-Design and justification details are documented in:
-- [docs/engineering_decisions.md](docs/engineering_decisions.md)
+# Custom paths and person count
+python batch_segmentation.py --dataset dataset --output segmented_output --n-persons 10
+```
 
-Summary:
-1. venv-first policy for reproducibility and safety
-2. subject-disjoint split to avoid identity leakage
-3. confidence-based prelabel + review triage for practical annotation throughput
-4. tiny baseline model for rapid TinyML integration and int8 export
-5. inference fallback to avoid zero-feature failure modes on difficult images
-6. robustness and deployment exports to make the system operationally useful beyond local experimentation
+For each input image, two files are saved:
+- `{image_name}_mask.png` — Raw binary mask (black/white)
+- `{image_name}_overlay.png` — Geometrically refined RGB overlay
 
-## Important Operational Notes
+### Train TinyUNet (Optional)
 
-1. Segmentation preview in Streamlit is class-colorized, not grayscale, so low class IDs are visible.
-2. Inference summary includes fallback_used to track low-confidence/edge cases.
-3. If reviewed labels are added to [outputs/prelabels/reviewed_manifest.csv](outputs/prelabels/reviewed_manifest.csv), active-learning merge can incorporate them automatically.
+Re-train the model on the UBIRIS dataset:
+
+```bash
+python scripts/train_tinyunet.py
+```
+
+The best checkpoint is saved to `outputs/models/tinyunet.pth`.
+
+---
+
+## 📁 Project Structure
+
+```
+iris-segmentation-tinyml/
+├── src/eye_feature_pipeline/
+│   ├── tinyunet.py               # TinyUNet model, training loop, inference
+│   ├── geometric_refinement.py   # Circle fitting, overlay composition
+│   └── __init__.py
+├── scripts/
+│   ├── train_tinyunet.py         # Training script
+│   ├── setup_venv.ps1            # Environment setup (Windows)
+│   ├── setup_venv.sh             # Environment setup (Linux/macOS)
+│   └── run_streamlit.ps1         # Streamlit launcher
+├── configs/                      # YAML configuration files
+├── dataset/                      # UBIRIS eye images (not tracked in git)
+├── outputs/models/               # Trained model checkpoints
+├── batch_segmentation.py         # Batch processing CLI
+├── streamlit_app.py              # Streamlit web application
+├── requirements.txt              # Python dependencies
+└── README.md
+```
+
+---
+
+## 👥 Authors & Credits
+
+| | |
+|---|---|
+| **Authors** | **Prasenjit Saha** & **Mayank Sharma** |
+| **Supervisor** | **Dr. Binod Kumar Singh** |
+| **Institution** | Department of Computer Science and Engineering, NIT Jamshedpur |
+| **Programme** | Master of Computer Applications (MCA), 6th Semester |
+| **Date** | April 2026 |
+
+---
+
+## 📄 License
+
+This project was developed as an academic Major Project submission at NIT Jamshedpur.
