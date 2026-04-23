@@ -1,0 +1,91 @@
+# ======================================
+# Python
+# ======================================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+.env
+.env.local
+
+# Jupyter
+.ipynb_checkpoints/
+*.ipynb_checkpoints
+
+# ======================================
+# IDE & Editor
+# ======================================
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ======================================
+# Dataset (raw data - not version controlled)
+# ======================================
+dataset/
+
+# ======================================
+# Project outputs (generated)
+# ======================================
+outputs/**
+!outputs/.gitkeep
+
+# Auto-generated upload cache from Streamlit inference
+outputs/inference_uploads/**
+
+# ======================================
+# Models and data artifacts
+# ======================================
+# Keep these scoped to generated output locations to avoid
+# accidentally ignoring real source files with the same extensions.
+outputs/**/*.npz
+outputs/**/*.npy
+outputs/**/*.h
+outputs/**/*.pkl
+outputs/**/*.pickle
+outputs/**/*.joblib
+outputs/**/*.onnx
+outputs/**/*.tflite
+
+# ======================================
+# Temporary and system files
+# ======================================
+*.tmp
+*.temp
+*.log
+*.lock
+.python-version
+pip-log.txt
+pip-delete-this-directory.txt
+.DS_Store
+Thumbs.db
+
+# ======================================
+# OS-specific
+# ======================================
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+desktop.ini
